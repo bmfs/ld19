@@ -1,0 +1,840 @@
+<!DOCTYPE html><html>
+<head>
+<title>spaceship</title>
+<script src="js/sprite.js" type="text/javascript" charset="utf-8" async defer></script>
+<style type="text/css" media="screen">
+  #sjs {
+    background: #ccc;
+    margin: 50px auto;
+  }
+  
+</style>
+</head>
+<body>
+  <div style="text-align: center"><h1>Ludum Dare #19</h1></div>
+  <div style="text-align: center"><h3>Theme: Discovery | By: bmfs </h1></div>
+  <div id="holder"></div>
+  <div style="text-align: center"><p> Directional keys to move, space to land, and move</h1></div>
+</body>
+<script>
+
+window.onload = function() {
+    var game_height = 300;
+    var game_width = 800;
+    
+    var uelem = [];
+    
+    var universe = new Universe();
+    universe.init();
+    
+    var input  = new sjs.Input();  
+    var game = new Game();
+    var spaceship = new Spaceship();
+    spaceship.init();
+    
+    //var arrow = new Arrow();
+    //arrow.init();
+    universe.setup();
+    var player = new Player();
+    var bunny = new Bunny();
+    var world = new World();
+    
+    
+     /*
+         0 - navigate between worlds
+         1 - enter in a world
+      */
+    var gameMode = -1;
+    
+    var universe_background = new sjs.Layer('ubackground');
+    var background =  new sjs.Layer('background');
+    var actors = new sjs.Layer('actors');
+    var foreground =  new sjs.Layer('foreground');
+    var aboveall = new sjs.Layer('aboveall');
+    
+  
+    
+    function Game(){
+      
+      this.update = function(){
+        if (gameMode == -1){ // universe}
+          //spaceship.updateInput(input.keyboard);
+          spaceship.update();
+          universe.update();
+          spaceship.goalone();
+        
+        } else if (gameMode == 3){
+          if(universe !=undefined && universe.world2.opacity > 0){
+            universe.world2.opacity -= 0.1
+            spaceship.spaceship.opacity -=0.1
+            universe.update();
+            
+          } else {
+            if (universe != undefined){
+              universe.world.remove();
+              universe.world2.remove();
+              universe.srabbit.rabbit.remove();
+              universe = undefined;
+              spaceship.spaceship.x = 0;
+              spaceship.spaceship.y = 0;
+              spaceship.realx = 0;
+              spaceship.realy = 0;
+              spaceship.spaceship.opacity=0;
+            }
+            if (spaceship.spaceship.opacity<1){
+              spaceship.spaceship.opacity +=0.1;
+            } else {
+              gameMode = 0;
+            }
+            
+          }
+          spaceship.update();
+        } else if (gameMode == 0){ // spaceship
+          
+          spaceship.updateInput(input.keyboard);
+          spaceship.update();
+        } else if (gameMode == 1) {
+            if (!world.initted) world.init();
+            if (!player.initted) player.init();
+            if (!bunny.initted) bunny.init();
+            
+            player.updateInput(input.keyboard);
+            player.update(input);
+            bunny.update();
+            world.update();
+        }
+      }
+      
+    } // end of Game
+    
+    function TheEnd(){
+      this.initted = false;
+      
+      this.init = function(){
+        this.initted = true;
+        
+        this.end = new sjs.Sprite('img/theend.png', aboveall);
+        this.end.w = 210;
+        this.end.h = 74;
+        this.end.opacity = 0;
+        this.name ="theend";
+      }
+      
+      this.update = function(){
+        if (!this.initted) return;
+        
+        this.end.opacity += 0.1;
+        
+        if (this.end.opacity > 1)
+          this.end.opacity = 1;
+        
+        
+        this.end.update();
+      }
+    }
+    function Bunny(){
+      this.initted = false;
+      
+      this.init = function(){
+        this.initted = true;
+        this.jumping = new Audio("sounds/boing.wav");
+        
+        this.bunny = new sjs.Sprite('img/bunny.png', actors, "bunny");
+        this.bunny.x = game_width/2;
+        this.bunny.realx = this.bunny.x;
+        this.bunny.w = 38;
+        this.bunny.h = 47;
+        this.bunny.y = game_height-this.bunny.h;
+        this.dir = 1;
+        
+        selem.push(this.bunny);
+        
+        this.vx = 0;
+        this.vy = 0;
+        
+        this.caught = false;
+        
+        this.ending = false;
+      }
+      
+      this.update = function(){
+        if (this.dir == -1){
+          this.bunny.scale(1, 1);
+        } else {
+          this.bunny.scale(-1, 1);
+        }
+        
+        if (Math.abs(player.realx-this.bunny.realx) < 50)
+          this.vx = 10
+        else{
+          this.vx -= 0.2;
+          if (this.vx<0)
+            this.vx = 0;
+        }
+        
+        
+        if (this.bunny.y >= game_height-this.bunny.h && this.vx != 0){
+          this.vy -= 5;
+          this.jumping.currentTime = 0;
+          this.jumping.play();
+        }
+        if (this.bunny.y < game_height-120){
+          this.vy += 5;
+        }
+        
+        
+        if (this.bunny.y > game_height-this.bunny.h)
+          this.bunny.y = game_height-this.bunny.h;
+        
+        
+        if (!this.caught){
+        
+        this.bunny.realx += this.dir*this.vx;
+        
+        if (this.bunny.realx >= 1500){
+          this.dir = -1;
+          this.bunny.realx = 1500;
+        }
+        
+        
+          this.bunny.move(0,this.vy);
+        } else if (!this.ending){
+          this.bunny.y = game_height-this.bunny.h;
+          this.ending = true;
+          this.going_up_speed = 0.001;
+          
+          this.end = new TheEnd();
+        }
+        
+        if (this.ending){
+          this.bunny.y -= 0.1*this.going_up_speed;
+          this.going_up_speed +=0.1;
+          
+          if (this.bunny.y  < 50){
+            if (!this.end.initted) {
+              this.end.init();
+              this.end.end.y = 50;
+              this.end.end.realx = this.bunny.realx-this.end.end.w/2+40;
+              //this.end.end.x = this.bunny.x-this.end.end.w/2+40;
+              
+              selem.push(this.end.end);
+            }
+            this.end.update();
+            this.bunny.y = 50;
+          }
+        }
+        
+        if (this.bunny.realx <= 0){
+          this.dir = 1;
+          this.bunny.realx = 0;
+        }
+        
+        
+        
+        this.bunny.update();
+      }
+    }
+    
+    function Totem(){
+      this.init = function(){
+        
+        this.totem = new sjs.Sprite('img/gift.png', actors);
+        this.totem.x = player.character.x-this.totem.w-200;
+        this.totem.realx  = player.realx-this.totem.w-200;
+        this.totem.w = 86;
+        this.totem.h = 78;
+        this.totem.y = 20;
+        
+        selem.push(this.totem)
+        
+        this.snd = new Audio("sounds/pickup.wav");
+        
+        this.speed = 2;
+      }
+      
+      this.update = function(){
+        this.totem.y += 0.3*this.speed;
+        this.speed += 0.1
+        
+        if (this.totem.y > game_height-this.totem.h*2){
+          this.totem.y = game_height-this.totem.h*2;
+          
+          player.keyenabled = true;
+        }
+        
+        if (this.totem.collidesWith(player.character)){
+          this.totem.opacity = 0;
+          player.armed = true;
+          player.weapon.opacity = 1;
+          this.snd.play();
+        }
+        //this.totem.update();
+      }
+    }
+    
+    var selem = [];
+    function World(){
+      this.initted = false;
+
+      
+      this.init = function(){
+        this.initted = true;
+        this.head = 0;
+        
+        this.flip = 3;
+        this.counter = 0;
+        
+        spaceship.spaceship.realx = spaceship.spaceship.x;
+        selem.push(spaceship.spaceship);
+        
+        
+        for(i=0; i<40; i++){
+          var p;
+          if (i%2 == 0)
+            p = new sjs.Sprite('img/pinetree.png', background);
+          else
+            p = new sjs.Sprite('img/pinetree.png', foreground);
+            
+          p.y = game_height-58;
+          p.x = (Math.random()*100000) % 1500;
+          p.realx = p.x;
+          p.w = 34;
+          p.h = 60;
+          selem.push(p);
+        }
+        
+        for(i=0; i<20; i++){
+          var p;
+          if (i%2 == 0)
+            p = new sjs.Sprite('img/cloud.png', background);
+          else
+            p = new sjs.Sprite('img/cloud.png', foreground);
+            
+          p.y = 40+(Math.random()*100) % 20;
+          p.x = (Math.random()*100000) % 1500;
+          p.realx = p.x;
+          p.w = 149;
+          p.h = 86;
+          selem.push(p);
+        }
+        
+      }
+      
+      
+      this.update = function(){
+        if (player.realx<game_width/2){
+          player.character.x = player.realx;
+          if (player.character.x <= 0){
+            if (this.flip == 2){
+              this.counter+=1;
+            }
+            this.flip = 1;
+          }
+        }else { 
+          if (player.realx > 1500-(game_width/2) ) {
+            if (player.character.x >= game_width-player.character.w){
+              if (this.flip == 1){
+                this.counter+=1;
+              }
+              this.flip = 2;
+            }
+            player.character.x = player.realx - this.head;
+          } else {
+            player.character.x = game_width/2;
+            this.head = player.realx-player.character.x;
+          }
+        }
+         
+        //console.log("-->"+this.counter+" -- flip "+this.flip+" rx:"+Math.floor(player.realx)+"=="+Math.floor(1500/2) );
+        if (this.counter == 1 && Math.abs(Math.floor(player.realx)-Math.floor(1500/2)) < 10 ){
+            player.keyenabled = false;
+            player.xv = 0;
+            this.totem = new Totem()
+            this.totem.init();
+            this.counter+=1;
+        }
+            
+        if (this.head<0){
+          //player.character.x -= head;
+          this.head = 0;
+          //player.character.x = game_width/2;
+        }
+        
+        if (this.head > 1500){
+          this.head = 0;
+          //player.character.x = game_width/2;
+        }
+        
+        for(i in selem){
+          elm = selem[i];
+          elm.x = elm.realx-this.head;
+          elm.update();
+        }
+        
+        if (this.totem)
+          this.totem.update()
+        //console.log("-->"+this.head+" -- "+player.realx);
+      }
+    }
+    
+    
+    function SpaceRabbit(){
+      this.initted = false;
+      
+      this.init = function(){
+        this.rabbit = new sjs.Sprite('img/white_bunny.png',actors);
+        this.rabbit.w = 38;
+        this.rabbit.h = 47;
+        this.rabbit.realx = this.rabbit.x = 0;
+        this.rabbit.realy = this.rabbit.x = 0;
+        
+        uelem.push(this.rabbit);
+        
+        this.speed = 2;
+        this.dstx = 1500;
+        this.dsty = 1500;
+      }
+      
+      this.update = function(){
+        
+        if ((this.dstx - this.rabbit.realx) > 1){
+          this.rabbit.realx += (this.dstx - this.rabbit.realx)*0.01 + Math.random()*100%3;
+          this.rabbit.realy += (this.dsty - this.rabbit.realy)*0.01 + Math.random()*100%3;
+        }
+        
+        
+        //this.rabbit.update();
+      }
+    }
+    
+    
+    function Arrow(){
+      this.init = function(){
+        this.arrow = new sjs.Sprite('img/pinetree.png', actors);
+        this.arrow.h = 60;
+        this.arrow.w = 30;
+        this.arrow.x = game_width-this.arrow.w;
+        this.arrow.y = game_height-this.arrow.h;
+      }
+      
+      this.update = function(){
+        dx = universe.srabbit.rabbit.realx-spaceship.realx;
+        dy = universe.srabbit.rabbit.realy-spaceship.realy;
+        distance = Math.sqrt ( dx * dx + dy * dy );
+        angle = Math.acos ( dy / distance );
+        //angle = Math.atan2((universe.srabbit.rabbit.realy-spaceship.realy),(universe.srabbit.rabbit.realx-spaceship.realx));
+        
+        this.arrow.angle = angle;
+        
+        this.arrow.update();
+      }
+    }
+    
+    function Universe(){
+      this.initted = false
+      
+      this.init = function(){
+        this.world = new sjs.Sprite('img/earth.png', universe_background);
+        this.world.w = this.world.h = 196;
+        this.world.realx = this.world.x = -this.world.h/4;
+        this.world.realy = this.world.y = -this.world.h/4;
+        
+        this.world2 = new sjs.Sprite('img/earth2.png', universe_background);
+        this.world2.w = this.world.h = 196;
+        this.world2.realx = this.world2.x = 1500;
+        this.world2.realy = this.world2.y = 1500;
+        
+        uelem.push(this.world2);  
+        uelem.push(this.world);
+        this.srabbit = new SpaceRabbit();
+        this.srabbit.init();
+        
+         for(i=0; i<300; i++){
+          var p;
+            p = new sjs.Sprite('img/spot.png', universe_background);
+
+            p.y = (Math.random()*100000) % 2000;
+            p.x = (Math.random()*100000) % 2000;
+            p.opacity = Math.random;
+            p.realx = p.x;
+            p.realy = p.y;
+            p.w = 10;
+            p.h = 10;
+            uelem.push(p);
+          }
+        
+        this.headx = 0;
+        this.heady = 0;
+      }
+      
+      this.setup = function(){
+        spaceship.realx = this.world.w/3;
+        spaceship.realy = this.world.h/3;
+        spaceship.spaceship.angle = Math.PI/4;
+      }
+      
+      this.update = function(){
+        
+        if (spaceship.realx<game_width/2){
+          spaceship.spaceship.x = spaceship.realx;
+        }else { 
+          /*if (player.realx > 1500-(game_width/2) ) {
+            if (player.character.x >= game_width-player.character.w){
+              if (this.flip == 1){
+                this.counter+=1;
+              }
+              this.flip = 2;
+            }
+            player.character.x = player.realx - this.head;
+          } else {*/
+            spaceship.spaceship.x = game_width/2;
+            this.headx = spaceship.realx-spaceship.spaceship.x;
+          //}
+        }
+        
+        if (spaceship.realy<game_height/2){
+          spaceship.spaceship.y = spaceship.realy;
+        }else { 
+            spaceship.spaceship.y = game_height/2;
+            this.heady = spaceship.realy-spaceship.spaceship.y;
+        }
+        
+        
+        
+        
+        if (this.headx < 0)
+          this.headx = 0;
+        if (this.heady < 0)
+          this.heady = 0;
+        
+        this.srabbit.update();
+        //arrow.update();
+        
+        for(i in uelem){
+          elm = uelem[i];
+          elm.x = elm.realx - this.headx;
+          elm.y = elm.realy - this.heady;
+          elm.update();
+          
+        }
+      }
+    }
+    
+    
+    function Player(){
+      this.initted = false;
+      
+      this.init = function(){
+        this.initted = true;
+        
+        this.snd = new Audio('sounds/hit.wav');
+        
+        this.steps = new Audio('sounds/step.wav');
+        this.idle = new sjs.Sprite('img/idle.png',actors);
+        this.idle.h = this.idle.w = 32;
+        this.run = new sjs.Sprite('img/run.png',actors);
+        this.run.h = this.run.w = 32;
+        this.idle.x = this.run.x = this.realx = spaceship.spaceship.x;
+        this.idle.opacity = 0;
+        this.idle.y = this.run.y = game_height-32;
+        
+        this.hasweapon = false;
+        this.weapon = new sjs.Sprite('img/weapon.png', actors);
+        this.weapon.w = 27;
+        this.weapon.h = 43;
+        this.weapon.angle = Math.PI/2-Math.PI/8;
+        this.weapon.x = this.weapon.realx = this.run.x;
+        this.weapon.y = game_height-this.run.h-25;
+        this.weapon.opacity = 0;
+        this.armed = false;
+        selem.push(this.weapon);
+
+        this.cycle = new sjs.Cycle([[32, 0, 2],
+                                   [64, 0, 3],
+                                   [96, 0, 3],
+                                   [224, 0, 3],
+                                   [128, 0, 3],
+                                   [160, 0, 3],
+                                   [192, 0, 3],
+                                   [224, 0, 3]]);
+        this.cycle.sprites = [this.run];
+
+        this.character = this.run;
+
+        this.xv = 0;
+        this.yv = 0;
+        this.keyenabled = true;
+      }
+
+      this.switchAnim = function (to){
+          this.character.opacity = 0;
+          this.character.update();
+          to.x = this.character.x;
+          to.y = this.character.y;
+          this.character = to;
+          this.character.opacity = 1;
+          this.character.update();
+        }
+        
+      this.updateInput = function(keyboard){
+            
+            if (!this.keyenabled)
+              return;
+              
+            var x = this.character.x + this.character.w/2;
+            var y = this.character.y + this.character.h - 1;
+            var has_contact = this.character.y >= game_height-32;
+
+
+            if(keyboard.up && this.yv >= 0) {
+                if(has_contact)
+                    this.yv = -7;
+                else
+                    this.yv = this.yv - 0.1;
+            }
+
+            this.yv = this.yv + 0.3;
+
+            if(!keyboard.left && !keyboard.right)
+              this.xv = this.xv / 1.3;
+
+            if(keyboard.left) {
+              this.xv = Math.max(-8.5, this.xv-1);
+              this.character.scale(-1, 1);
+                
+              if (this.armed){
+                this.weapon.scale(1, -1);
+                this.weapon.angle = 2*Math.PI/3;
+              }
+            }
+            if(keyboard.right) {
+              this.xv = Math.min(8.5, this.xv+1);
+              this.character.scale(1, 1);
+              
+              if (this.armed){
+                this.weapon.scale(1, 1);
+                this.weapon.angle = Math.PI/2-Math.PI/8;
+              }
+              
+            }
+            
+            
+            if (this.armed && keyboard.space && this.weapon.opacity > 0){
+              this.armed = false;
+              this.shoot = true;
+              this.acc = -3;
+              this.weapon_dir = (this.weapon.angle>Math.PI/2?-1:1);
+            }
+            
+            
+            if (this.shoot){
+              this.acc += 0.3;
+              
+              this.weapon.y += this.acc;
+              this.weapon.realx += 10*this.weapon_dir;
+              this.weapon.angle += 0.02*this.weapon_dir;
+              
+              
+              // hits bunny
+              if (!bunny.caught && this.weapon.collidesWith(bunny.bunny)){
+                this.snd.play();
+                tmp = new sjs.Sprite('img/win_bunny.png', aboveall);
+                tmp.h = 64;
+                tmp.w = 86;
+                tmp.x = bunny.bunny.x;
+                tmp.y = bunny.bunny.y;
+                tmp.realx = bunny.bunny.realx;
+                bunny.bunny.opacity = 0;
+                tmp.opacity = 1;
+                selem.push(tmp);
+                bunny.bunny = tmp;
+                
+                bunny.caught = true;
+                this.weapon.opacity = 0;
+              }
+              
+              if (this.weapon.y >= game_height-25){
+                this.weapon.y = game_height-25;
+                this.shoot = false;
+              }
+            }
+            
+            if (!this.shoot){
+              if (this.weapon.collidesWith(this.character)){
+                this.armed = true;
+              }
+            }
+
+
+            if(this.yv>0 && has_contact)
+                this.yv = 0;
+            
+            if (bunny.caught){
+                this.armed = false;
+                this.weapon.opacity = 0;
+             }
+          }
+          
+          this.update = function(input){
+            
+            //this.character.move(this.xv, this.yv);
+            this.character.move(0, this.yv);
+            
+            this.realx += this.xv;
+            if(this.realx < 0)
+              this.realx = 0;
+            
+            if(this.realx > 1500)
+                this.realx = 1500;
+            
+            if (this.armed){
+              this.weapon.realx = this.realx
+              this.weapon.y = this.character.y-25;
+            }
+            
+            if(this.character.x > game_width - 20)
+              this.character.x = game_width - 20;
+
+            if (this.character.y > game_height-32)
+              this.character.y = game_height-32;
+
+            if(input.arrows()){
+                this.switchAnim(this.run);
+                this.cycle.next(ticker.lastTicksElapsed);
+            } else{
+                this.cycle.reset();
+                this.switchAnim(this.idle);
+            }
+
+            this.character.update();
+            //this.weapon.update();
+      }
+    }
+  
+    function Spaceship(){
+      this.init = function(){
+        this.posx = 10;
+        this.posy = 10;
+        this.angle = 0;
+        this.snd = new Audio("sounds/nave.wav");
+        this.snd.loop = true;
+        this.spaceship = new sjs.Sprite('img/spaceship.png', actors);
+        this.spaceship.w = 160;
+        this.spaceship.h = 103;
+        this.spaceship.x = this.posx;
+        this.spaceship.y = this.posy;
+        this.realx = this.posx;
+        this.realy = this.posy
+        
+        this.speed = 0;
+        
+        this.mode = 0;
+        
+        this.timer = 0;
+      }
+      
+      this.burst = function(){
+        this.spaceship.loadImg('img/spaceship_withfire.png');
+        this.snd.play();
+      }
+      
+      this.noburst = function(){
+        this.spaceship.loadImg('img/spaceship.png');
+        this.snd.pause()
+      }
+      
+      this.updateInput = function(keyboard){
+        if (this.mode == 0) {
+           
+          if(keyboard.left)
+            this.spaceship.rotate(0.2);
+
+          if(keyboard.right)
+            this.spaceship.rotate(-0.2);
+
+          if (keyboard.up){
+            this.burst();
+            this.speed += 0.1;
+          } else {
+            this.noburst();
+            this.speed -= 0.1;
+          }
+
+          if (keyboard.down){
+            this.speed -=0.5;
+          }
+
+          if (this.speed<0)
+            this.speed = 0;
+          
+          if (keyboard.space){
+            this.spaceship.angle = -Math.PI/2;
+            this.mode = 1;
+          }
+        }
+        if (this.mode == 1) {
+          if (Math.abs(this.spaceship.angle-(-Math.PI/2)) < 0.1){
+            this.speed += -0.5
+            this.burst();
+          }
+          
+        }
+
+          
+      }
+      
+      this.goalone = function(){
+        this.burst();
+        if ((universe.srabbit.rabbit.realx - this.realx) > 1){
+          this.realx += (universe.srabbit.rabbit.realx - this.realx)*0.01 + Math.random()*100%3;
+          this.realy += (universe.srabbit.rabbit.realy - this.realy)*0.01 + Math.random()*100%3;
+        } else {
+          if (this.timer > 100){
+            gameMode = 3;
+            
+            this.noburst;
+          }
+        }
+        
+        
+        //this.rabbit.update();
+      }
+      
+      this.update = function(){
+        
+        posx = this.speed * Math.cos(this.spaceship.angle);
+        posy = this.speed * Math.sin(this.spaceship.angle);
+        
+        this.realx += posx;
+        this.realy += posy;
+        
+        if (gameMode != -1){
+        this.spaceship.move(posx,posy);
+        
+        
+        if (this.spaceship.y > (game_height-this.spaceship.h)){
+          if (this.mode == 1){ // has landed
+            this.mode = 2; // shuttoff
+            gameMode = 1; // platformers
+            
+          }
+          
+          this.noburst();
+          this.spaceship.y = game_height-this.spaceship.h-10;
+        }
+        
+        }
+        
+        this.spaceship.update();
+        
+        this.timer+=1;
+      }
+    }
+  
+    
+    var ticker = new sjs.Ticker(35, game.update);
+    ticker.run();
+
+};
+</script>
+</html>
